@@ -1,0 +1,38 @@
+name: Update daily market snapshot
+
+on:
+  schedule:
+    # 22:30 UTC is after the regular US close in both US daylight-saving and standard time.
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-market-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out current website
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch daily large-cap market snapshot
+        run: node scripts/update-market-snapshot.mjs market-snapshot.json
+      - name: Commit updated snapshot when changed
+        run: |
+          if git diff --quiet -- market-snapshot.json; then
+            echo "No market snapshot change to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add market-snapshot.json
+          git commit -m "chore: update daily market snapshot"
+          git push
